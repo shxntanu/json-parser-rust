@@ -130,7 +130,7 @@ pub fn lexer(json: &str) -> Vec<Token> {
     tokens
 }
 
-pub fn parse_values(tokens: &Vec<Token>, current_pointer: &mut usize) -> bool {
+pub fn parse_value(tokens: &Vec<Token>, current_pointer: &mut usize) -> bool {
     let token = &tokens[*current_pointer];
     match token.token_type {
         TokenType::String => true,
@@ -138,11 +138,109 @@ pub fn parse_values(tokens: &Vec<Token>, current_pointer: &mut usize) -> bool {
         TokenType::True => true,
         TokenType::False => true,
         TokenType::Null => true,
-        TokenType::OpenBrace => 
-        _ => {
-            false
+        TokenType::OpenBrace => parse_object(tokens, current_pointer),
+        TokenType::OpenSqBracket => parse_array(tokens, current_pointer),
+        _ => false,
+    }
+}
+
+pub fn parse_object(tokens: &Vec<Token>, current_pointer: &mut usize) -> bool {
+    *current_pointer += 1;
+    while *current_pointer < tokens.len()
+        && tokens[*current_pointer].token_type != TokenType::CloseBrace
+    {
+        if tokens[*current_pointer].token_type != TokenType::String {
+            return false;
+        }
+
+        *current_pointer += 1;
+
+        if tokens[*current_pointer].token_type != TokenType::Colon {
+            return false;
+        }
+
+        *current_pointer += 1;
+
+        if !parse_value(tokens, current_pointer) {
+            return false;
+        }
+
+        *current_pointer += 1;
+
+        if *current_pointer < tokens.len()
+            && tokens[*current_pointer].token_type == TokenType::Comma
+            && tokens[*current_pointer + 1].token_type == TokenType::CloseBrace
+        {
+            return false;
+        }
+
+        if *current_pointer < tokens.len()
+            && tokens[*current_pointer].token_type == TokenType::Comma
+        {
+            *current_pointer += 1;
         }
     }
+
+    if *current_pointer < tokens.len()
+        && tokens[*current_pointer].token_type != TokenType::CloseBrace
+    {
+        return false;
+    }
+
+    *current_pointer += 1;
+
+    true
+}
+
+pub fn parse_array(tokens: &Vec<Token>, current_pointer: &mut usize) -> bool {
+    *current_pointer += 1;
+    while *current_pointer < tokens.len()
+        && tokens[*current_pointer].token_type != TokenType::CloseSqBracket
+    {
+        if !parse_value(tokens, current_pointer) {
+            return false;
+        }
+
+        *current_pointer += 1;
+
+        if *current_pointer < tokens.len()
+            && tokens[*current_pointer].token_type == TokenType::Comma
+            && tokens[*current_pointer + 1].token_type == TokenType::CloseSqBracket
+        {
+            return false;
+        }
+
+        if *current_pointer < tokens.len()
+            && tokens[*current_pointer].token_type == TokenType::Comma
+        {
+            *current_pointer += 1;
+        }
+    }
+
+    if *current_pointer < tokens.len()
+        && tokens[*current_pointer].token_type != TokenType::CloseSqBracket
+    {
+        return false;
+    }
+
+    // If the json consists only array
+    if *current_pointer == &tokens.len() - 1 {
+        *current_pointer += 1;
+    }
+
+    true // If the array is valid
+}
+
+pub fn parse(tokens: &Vec<Token>) -> bool {
+    if tokens.len() == 0 {
+        return false;
+    }
+
+    let mut current_pointer = 0;
+
+    let result = parse_value(&tokens, &mut current_pointer);
+
+    result && current_pointer == tokens.len()
 }
 
 fn main() {
